@@ -32,27 +32,8 @@ use std::fs;
 use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
+use cli_reader::Flags;
 
-#[derive(Debug)]
-pub struct CliPars {
-    pub data_folder: PathBuf,
-    pub source_file: PathBuf,
-    pub data_version: String,
-    pub data_date: String,
-    pub flags: Flags, 
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Flags {
-    pub import_ror: bool,
-    pub process_data: bool,
-    pub export_text: bool,
-    pub export_csv: bool,
-    pub export_full_csv: bool,
-    pub create_lookups: bool,
-    pub create_summary: bool,
-    pub test_run: bool,
-}
 
 pub struct InitParams {
     pub data_folder: PathBuf,
@@ -65,15 +46,16 @@ pub struct InitParams {
     pub flags: Flags,
 }
 
-pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
+pub async fn get_params(args: Vec<OsString>, config_string: String) -> Result<InitParams, AppError> {
 
     // Called from main as the initial task of the program.
     // Returns a struct that contains the program's parameters.
     // Start by obtaining CLI arguments and reading parameters from .env file.
       
     let cli_pars = cli_reader::fetch_valid_arguments(args)?;
+    let flags = cli_pars.flags;
 
-    if cli_pars.flags.create_lookups || cli_pars.flags.create_summary {
+    if flags.create_lookups || flags.create_summary {
 
        // Any ror data and any other flags or arguments are ignored.
 
@@ -93,8 +75,7 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
         // Normal import and / or processing and / or outputting
         // If folder name also given in CL args the CL version takes precedence
 
-        let source_file_path = "./config_r_umls.toml".to_string();
-        let config_file: Config = config_reader::populate_config_vars(&source_file_path)?; 
+        let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
         let file_pars = config_file.files;  // guaranteed to exist
 
         let empty_pb = PathBuf::from("");
@@ -113,7 +94,7 @@ pub async fn get_params(args: Vec<OsString>) -> Result<InitParams, AppError> {
             data_folder_good = false;
         }
 
-        if !data_folder_good && cli_pars.flags.import_ror { 
+        if !data_folder_good && flags.import_ror { 
 
             let msg = "Required data folder does not exists or is not accessible";
             let cf_err = CustomError::new(msg);
